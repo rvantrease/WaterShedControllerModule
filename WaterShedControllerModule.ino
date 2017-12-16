@@ -1,13 +1,7 @@
 // Based on Adafruits RadioHead fork https://github.com/adafruit/RadioHead
-// rf69 demo tx rx.pde
 // -*- mode: C++ -*-
-// Example sketch showing how to create a simple addressed, reliable messaging client
-// with the RH_RF69 class. RH_RF69 class does not provide for addressing or
-// reliability, so you should only use RH_RF69  if you do not need the higher
-// level messaging abilities.
-// It is designed to work with the other example rf69_server.
-// Demonstrates the use of AES encryption, setting the frequency and modem 
-// configuration
+// WaterShedControllerModule
+// Transmits messages about water shed sensor status
 
 /* Modifications
     12/09/2017 - RLV (tested and approved)
@@ -15,6 +9,8 @@
         Removed non-needed boards
           ATmega32U4, AVR_ATmega328P, ESP8266, ESP32
         Frequency 915.0Mhz
+    12/10/2017 - RLV 
+      Modified to allow more than one HC-SR04 sensor
 */
 
 #include <SPI.h>
@@ -22,8 +18,8 @@
 #include <RHReliableDatagram.h>
 
 /************ HC-SR04 Setup ***************/
-#define trigPin 13
-#define echoPin 12
+#define trigPin_1 13
+#define echoPin_1 12
 #define delayLoop 5000  //delay in milliseconds
 
 /************ Radio Setup ***************/
@@ -56,8 +52,8 @@ void setup()
   //while (!Serial) { delay(1); } // wait until serial console is open, remove if not tethered to computer
 
   // HC-SR04 Setup
-  pinMode(trigPin, OUTPUT);
-  pinMode(echoPin, INPUT);
+  pinMode(trigPin_1, OUTPUT);
+  pinMode(echoPin_1, INPUT);
 
   pinMode(LED, OUTPUT);     
   pinMode(RFM69_RST, OUTPUT);
@@ -105,11 +101,14 @@ uint8_t data[] = "  OK";
 void loop() {
   delay(delayLoop);  // Wait 1 second between transmits, could also 'sleep' here!
 
+  char myStr[10];
+  testfunc(myStr);
+  Serial.println(myStr);
+
   float pingInches = ping_In();
   int gallons = tankGallons(pingInches);
 
-  //char radiopacket[30] = "Hello World #";
-    char radiopacket[40] = "Gallons remaining ";
+  char radiopacket[40] = "Gallons remaining ";
 
   itoa(gallons, radiopacket+18, 10);
   //itoa(packetnum++, radiopacket+13, 10);
@@ -128,7 +127,7 @@ void loop() {
       Serial.print(rf69.lastRssi());
       Serial.print("] : ");
       Serial.println((char*)buf);     
-      Blink(LED, 40, 3); //blink LED 3 times, 40ms between blinks
+      Blink(LED, 100, 3); //blink LED 3 times, 100ms between blinks
     } else {
       Serial.println("No reply, is anyone listening?");
     }
@@ -148,12 +147,12 @@ void Blink(byte PIN, byte DELAY_MS, byte loops) {
 
 float ping_In() {
   float duration, distance, distance2, magicnumber;
-  digitalWrite(trigPin, LOW);  // Added this line
+  digitalWrite(trigPin_1, LOW);  // Added this line
   delayMicroseconds(2); // Added this line
-  digitalWrite(trigPin, HIGH);
+  digitalWrite(trigPin_1, HIGH);
   delayMicroseconds(10); // Added this line
-  digitalWrite(trigPin, LOW);
-  duration = pulseIn(echoPin, HIGH);
+  digitalWrite(trigPin_1, LOW);
+  duration = pulseIn(echoPin_1, HIGH);
   //Formula 29.1 is a magic number, not sure where it came from, but it appears to work
   //Speed of sound is 343 m/s
   //2.54 cm in an inch
@@ -178,4 +177,15 @@ int tankGallons(float inchesFromTop) {
     return tankCapacity - (gallonsPerInch * inchesFromTop);
 }
 
+//https://stackoverflow.com/questions/5660527/how-do-i-return-a-char-array-from-a-function?noredirect=1&lq=1
+void testfunc(char* outStr){
+  //outStr = "testing";
+  char str[10] = "testing";
+  //for(int i=0; i < 10; ++i){
+  //  outStr[i] = str[i];
+  //}
+  //outStr = str;
+  Serial.println(str);
+//  strncpy(str, outStr);
+}
 
