@@ -3,6 +3,9 @@
 // WaterShedControllerModule
 // Transmits messages about water shed sensor status
 
+
+//May have a memory leak, and may be handling char arrays wrong
+
 /* Modifications
     12/09/2017 - RLV (tested and approved)
       Initial cleanup of code
@@ -11,6 +14,9 @@
         Frequency 915.0Mhz
     12/10/2017 - RLV 
       Modified to allow more than one HC-SR04 sensor
+    12/16/2017 - RLV
+      Moved data packet send to seperate function
+      Added second tank sensor (currently not working always sends 275 gallons)
 */
 
 #include <SPI.h>
@@ -20,6 +26,8 @@
 /************ HC-SR04 Setup ***************/
 #define trigPin_1 13
 #define echoPin_1 12
+#define trigPin_2 11
+#define echoPin_2 10
 #define delayLoop 5000  //delay in milliseconds
 
 /************ Radio Setup ***************/
@@ -105,35 +113,29 @@ void loop() {
   testfunc(myStr);
   Serial.println(myStr);
 
-  float pingInches = ping_In();
+  char testing[] = "Will this print?";
+  writeCharArray(testing);
+
+  float pingInches = ping_In(trigPin_1, echoPin_1);
   int gallons = tankGallons(pingInches);
 
-  char radiopacket[40] = "Gallons remaining ";
+  char radiopacket[40] = "Gallons remaining tank 1 ";
 
-  itoa(gallons, radiopacket+18, 10);
-  //itoa(packetnum++, radiopacket+13, 10);
+  itoa(gallons, radiopacket+25, 10);
   Serial.print("Sending "); Serial.println(radiopacket);
-  
-  // Send a message to the DESTINATION!
-  if (rf69_manager.sendtoWait((uint8_t *)radiopacket, strlen(radiopacket), DEST_ADDRESS)) {
-    // Now wait for a reply from the server
-    uint8_t len = sizeof(buf);
-    uint8_t from;   
-    if (rf69_manager.recvfromAckTimeout(buf, &len, 2000, &from)) {
-      buf[len] = 0; // zero out remaining string
-      
-      Serial.print("Got reply from #"); Serial.print(from);
-      Serial.print(" [RSSI :");
-      Serial.print(rf69.lastRssi());
-      Serial.print("] : ");
-      Serial.println((char*)buf);     
-      Blink(LED, 100, 3); //blink LED 3 times, 100ms between blinks
-    } else {
-      Serial.println("No reply, is anyone listening?");
-    }
-  } else {
-    Serial.println("Sending failed (no ack)");
-  }
+
+  sendDataPacket(radiopacket);
+
+  pingInches = ping_In(trigPin_2, echoPin_2);
+  gallons = tankGallons(pingInches);
+
+  char radiopacket2[40] = "Gallons remaining tank 2 ";
+
+  itoa(gallons, radiopacket2+25, 10);
+  Serial.print("Sending "); Serial.println(radiopacket2);
+
+  sendDataPacket(radiopacket2);
+
 }
 
 void Blink(byte PIN, byte DELAY_MS, byte loops) {
@@ -145,14 +147,14 @@ void Blink(byte PIN, byte DELAY_MS, byte loops) {
   }
 }
 
-float ping_In() {
+float ping_In(int triggerPin, int echoPin) {
   float duration, distance, distance2, magicnumber;
-  digitalWrite(trigPin_1, LOW);  // Added this line
+  digitalWrite(triggerPin, LOW);  // Added this line
   delayMicroseconds(2); // Added this line
-  digitalWrite(trigPin_1, HIGH);
+  digitalWrite(triggerPin, HIGH);
   delayMicroseconds(10); // Added this line
-  digitalWrite(trigPin_1, LOW);
-  duration = pulseIn(echoPin_1, HIGH);
+  digitalWrite(triggerPin, LOW);
+  duration = pulseIn(echoPin, HIGH);
   //Formula 29.1 is a magic number, not sure where it came from, but it appears to work
   //Speed of sound is 343 m/s
   //2.54 cm in an inch
@@ -187,5 +189,32 @@ void testfunc(char* outStr){
   //outStr = str;
   Serial.println(str);
 //  strncpy(str, outStr);
+}
+
+void writeCharArray(char testArray[]){
+  Serial.println(testArray);
+}
+
+void sendDataPacket(char packetArray[]){
+  // Send a message to the DESTINATION!
+  if (rf69_manager.sendtoWait((uint8_t *)packetArray, strlen(packetArray), DEST_ADDRESS)) {
+    // Now wait for a reply from the server
+    uint8_t len = sizeof(buf);
+    uint8_t from;   
+    if (rf69_manager.recvfromAckTimeout(buf, &len, 2000, &from)) {
+      buf[len] = 0; // zero out remaining string
+      
+      Serial.print("Got reply from #"); Serial.print(from);
+      Serial.print(" [RSSI :");
+      Serial.print(rf69.lastRssi());
+      Serial.print("] : ");
+      Serial.println((char*)buf);     
+      Blink(LED, 100, 3); //blink LED 3 times, 100ms between blinks
+    } else {
+      Serial.println("No reply, is anyone listening?");
+    }
+  } else {
+    Serial.println("Sending failed (no ack)");
+  }
 }
 
