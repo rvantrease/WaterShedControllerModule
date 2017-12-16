@@ -5,6 +5,8 @@
 
 
 //May have a memory leak, and may be handling char arrays wrong
+//https://stackoverflow.com/questions/5660527/how-do-i-return-a-char-array-from-a-function?noredirect=1&lq=1
+//https://stackoverflow.com/questions/10730461/c-error-trying-to-rewrite-char-array
 
 /* Modifications
     12/09/2017 - RLV (tested and approved)
@@ -17,6 +19,7 @@
     12/16/2017 - RLV
       Moved data packet send to seperate function
       Added second tank sensor (currently not working always sends 275 gallons)
+      Removed char function testing garbage
 */
 
 #include <SPI.h>
@@ -109,32 +112,27 @@ uint8_t data[] = "  OK";
 void loop() {
   delay(delayLoop);  // Wait 1 second between transmits, could also 'sleep' here!
 
-  char myStr[10];
-  testfunc(myStr);
-  Serial.println(myStr);
+  //HC-SR04 Sensor tank 1
+    float pingInches = ping_In(trigPin_1, echoPin_1);
+    int gallons = tankGallons(pingInches);
+  
+    char radiopacket[40] = "Gallons remaining tank 1 ";
+  
+    itoa(gallons, radiopacket+25, 10);
+    Serial.print("Sending "); Serial.println(radiopacket);
+  
+    sendDataPacket(radiopacket);
 
-  char testing[] = "Will this print?";
-  writeCharArray(testing);
-
-  float pingInches = ping_In(trigPin_1, echoPin_1);
-  int gallons = tankGallons(pingInches);
-
-  char radiopacket[40] = "Gallons remaining tank 1 ";
-
-  itoa(gallons, radiopacket+25, 10);
-  Serial.print("Sending "); Serial.println(radiopacket);
-
-  sendDataPacket(radiopacket);
-
-  pingInches = ping_In(trigPin_2, echoPin_2);
-  gallons = tankGallons(pingInches);
-
-  char radiopacket2[40] = "Gallons remaining tank 2 ";
-
-  itoa(gallons, radiopacket2+25, 10);
-  Serial.print("Sending "); Serial.println(radiopacket2);
-
-  sendDataPacket(radiopacket2);
+  //HC-SR04 Sensor tank 2
+    pingInches = ping_In(trigPin_2, echoPin_2);
+    gallons = tankGallons(pingInches);
+  
+    char radiopacket2[40] = "Gallons remaining tank 2 ";
+  
+    itoa(gallons, radiopacket2+25, 10);
+    Serial.print("Sending "); Serial.println(radiopacket2);
+  
+    sendDataPacket(radiopacket2);
 
 }
 
@@ -177,22 +175,6 @@ int tankGallons(float inchesFromTop) {
     float gallonsPerInch = tankCapacity/tankHeight;
 
     return tankCapacity - (gallonsPerInch * inchesFromTop);
-}
-
-//https://stackoverflow.com/questions/5660527/how-do-i-return-a-char-array-from-a-function?noredirect=1&lq=1
-void testfunc(char* outStr){
-  //outStr = "testing";
-  char str[10] = "testing";
-  //for(int i=0; i < 10; ++i){
-  //  outStr[i] = str[i];
-  //}
-  //outStr = str;
-  Serial.println(str);
-//  strncpy(str, outStr);
-}
-
-void writeCharArray(char testArray[]){
-  Serial.println(testArray);
 }
 
 void sendDataPacket(char packetArray[]){
